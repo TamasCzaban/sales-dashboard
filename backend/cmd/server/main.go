@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/czdev/sales-dashboard/backend/internal/handler"
 	"github.com/czdev/sales-dashboard/backend/internal/middleware"
@@ -30,6 +32,27 @@ func main() {
 	r.Get("/api/v1/analytics/revenue", handler.Revenue(s))
 	r.Get("/api/v1/analytics/products", handler.Products(s))
 	r.Get("/api/v1/analytics/churn", handler.Churn(s))
+
+	// Serve frontend static files
+	staticDir := os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		staticDir = "./static"
+	}
+	fileServer := http.FileServer(http.Dir(staticDir))
+	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(staticDir, r.URL.Path)
+		// If the file exists and isn't a directory, serve it directly
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			// Set cache headers for assets
+			if strings.HasPrefix(r.URL.Path, "/assets/") {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		// SPA fallback: serve index.html for all other routes
+		http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
