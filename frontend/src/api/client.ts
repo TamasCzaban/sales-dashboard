@@ -5,6 +5,9 @@ import type {
   RevenueData,
   ProductsData,
   ChurnData,
+  KPISummary,
+  CustomerInsights,
+  PricingInsights,
 } from "../types/sales";
 
 const api = axios.create({
@@ -42,5 +45,22 @@ export async function getChurnSignals(params?: {
   window_days?: number;
 }): Promise<ApiResponse<ChurnData>> {
   const { data } = await api.get<ApiResponse<ChurnData>>("/analytics/churn", { params });
+  return data;
+}
+
+export async function getKPIs(): Promise<ApiResponse<KPISummary>> {
+  const { data } = await api.get<ApiResponse<KPISummary>>("/analytics/kpis");
+  return data;
+}
+
+export async function getCustomerInsights(params?: {
+  top?: number;
+}): Promise<ApiResponse<CustomerInsights>> {
+  const { data } = await api.get<ApiResponse<CustomerInsights>>("/analytics/customers", { params });
+  return data;
+}
+
+export async function getPricingInsights(): Promise<ApiResponse<PricingInsights>> {
+  const { data } = await api.get<ApiResponse<PricingInsights>>("/analytics/pricing");
   return data;
 }

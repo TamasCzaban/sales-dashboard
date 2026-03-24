@@ -53,3 +53,43 @@ type ValidationError struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
 }
+
+type KPISummary struct {
+	TotalRevenue     float64 `json:"total_revenue"`
+	TotalOrders      int     `json:"total_orders"`
+	AvgOrderValue    float64 `json:"avg_order_value"`
+	UniqueCustomers  int     `json:"unique_customers"`
+	RevenueThisMonth float64 `json:"revenue_this_month"`
+	RevenueLastMonth float64 `json:"revenue_last_month"`
+	RevenueGrowth    float64 `json:"revenue_growth"`
+}
+
+type CustomerSummary struct {
+	CustomerID    string  `json:"customer_id"`
+	TotalRevenue  float64 `json:"total_revenue"`
+	OrderCount    int     `json:"order_count"`
+	AvgOrderValue float64 `json:"avg_order_value"`
+	LastOrderDate string  `json:"last_order_date"`
+}
+
+type CustomerInsights struct {
+	TopCustomers   []CustomerSummary `json:"top_customers"`
+	NewCustomers   int               `json:"new_customers"`
+	Returning      int               `json:"returning_customers"`
+	TotalCustomers int               `json:"total_customers"`
+}
+
+type ProductPricing struct {
+	Product      string  `json:"product"`
+	AvgUnitPrice float64 `json:"avg_unit_price"`
+	MinUnitPrice float64 `json:"min_unit_price"`
+	MaxUnitPrice float64 `json:"max_unit_price"`
+	TotalRevenue float64 `json:"total_revenue"`
+	TotalOrders  int     `json:"total_orders"`
+	AvgDiscount  float64 `json:"avg_discount"`
+}
+
+type PricingInsights struct {
+	Products    []ProductPricing `json:"products"`
+	AvgDiscount float64          `json:"avg_discount"`
+}

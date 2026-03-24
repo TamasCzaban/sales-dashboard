@@ -32,6 +32,9 @@ func main() {
 	r.Get("/api/v1/analytics/revenue", handler.Revenue(s))
 	r.Get("/api/v1/analytics/products", handler.Products(s))
 	r.Get("/api/v1/analytics/churn", handler.Churn(s))
+	r.Get("/api/v1/analytics/kpis", handler.KPIs(s))
+	r.Get("/api/v1/analytics/customers", handler.Customers(s))
+	r.Get("/api/v1/analytics/pricing", handler.Pricing(s))
 
 	// Serve frontend static files
 	staticDir := os.Getenv("STATIC_DIR")

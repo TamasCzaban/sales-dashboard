@@ -10,7 +10,10 @@ function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { to: "/upload", label: "Upload" },
-    { to: "/dashboard", label: "Dashboard" },
+    { to: "/kpis", label: "KPIs" },
+    { to: "/dashboard", label: "Revenue & Products" },
+    { to: "/customers", label: "Customers" },
+    { to: "/pricing", label: "Pricing" },
   ];
 
   return (

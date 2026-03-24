@@ -14,6 +14,9 @@ type Store interface {
 	GetRevenueTrend(from, to string, groupBy string) ([]model.RevenuePeriod, float64)
 	GetProductBreakdown(top int, sortBy string) []model.ProductTotal
 	GetChurnSignals(windowDays int) ([]model.CustomerFrequency, model.ChurnSummary)
+	GetKPIs() model.KPISummary
+	GetCustomerInsights(top int) model.CustomerInsights
+	GetPricingInsights() model.PricingInsights
 	HasData() bool
 }
 
@@ -230,6 +233,207 @@ func classifyTrend(windows []model.CustomerWindow) string {
 		return "growing"
 	}
 	return "stable"
+}
+
+func (s *MemoryStore) GetKPIs() model.KPISummary {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if len(s.records) == 0 {
+		return model.KPISummary{}
+	}
+
+	customers := map[string]bool{}
+	months := map[string]float64{}
+	var totalRevenue float64
+
+	for _, r := range s.records {
+		totalRevenue += r.TotalAmount
+		customers[r.CustomerID] = true
+		m := r.Date.Format("2006-01")
+		months[m] += r.TotalAmount
+	}
+
+	sortedMonths := make([]string, 0, len(months))
+	for m := range months {
+		sortedMonths = append(sortedMonths, m)
+	}
+	sort.Strings(sortedMonths)
+
+	var thisMonth, lastMonth float64
+	if len(sortedMonths) >= 1 {
+		thisMonth = months[sortedMonths[len(sortedMonths)-1]]
+	}
+	if len(sortedMonths) >= 2 {
+		lastMonth = months[sortedMonths[len(sortedMonths)-2]]
+	}
+
+	var growth float64
+	if lastMonth > 0 {
+		growth = math.Round((thisMonth-lastMonth)/lastMonth*1000) / 10
+	}
+
+	totalOrders := len(s.records)
+	avgOrder := 0.0
+	if totalOrders > 0 {
+		avgOrder = math.Round(totalRevenue/float64(totalOrders)*100) / 100
+	}
+
+	return model.KPISummary{
+		TotalRevenue:     math.Round(totalRevenue*100) / 100,
+		TotalOrders:      totalOrders,
+		AvgOrderValue:    avgOrder,
+		UniqueCustomers:  len(customers),
+		RevenueThisMonth: math.Round(thisMonth*100) / 100,
+		RevenueLastMonth: math.Round(lastMonth*100) / 100,
+		RevenueGrowth:    growth,
+	}
+}
+
+func (s *MemoryStore) GetCustomerInsights(top int) model.CustomerInsights {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if len(s.records) == 0 {
+		return model.CustomerInsights{}
+	}
+
+	type acc struct {
+		revenue  float64
+		orders   int
+		lastDate time.Time
+	}
+	customers := map[string]*acc{}
+
+	for _, r := range s.records {
+		c, ok := customers[r.CustomerID]
+		if !ok {
+			c = &acc{}
+			customers[r.CustomerID] = c
+		}
+		c.revenue += r.TotalAmount
+		c.orders++
+		if r.Date.After(c.lastDate) {
+			c.lastDate = r.Date
+		}
+	}
+
+	summaries := make([]model.CustomerSummary, 0, len(customers))
+	var newCount, returningCount int
+
+	for cid, c := range customers {
+		avg := 0.0
+		if c.orders > 0 {
+			avg = math.Round(c.revenue/float64(c.orders)*100) / 100
+		}
+		summaries = append(summaries, model.CustomerSummary{
+			CustomerID:    cid,
+			TotalRevenue:  math.Round(c.revenue*100) / 100,
+			OrderCount:    c.orders,
+			AvgOrderValue: avg,
+			LastOrderDate: c.lastDate.Format("2006-01-02"),
+		})
+		if c.orders == 1 {
+			newCount++
+		} else {
+			returningCount++
+		}
+	}
+
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].TotalRevenue > summaries[j].TotalRevenue
+	})
+
+	if top > 0 && top < len(summaries) {
+		summaries = summaries[:top]
+	}
+
+	return model.CustomerInsights{
+		TopCustomers:   summaries,
+		NewCustomers:   newCount,
+		Returning:      returningCount,
+		TotalCustomers: len(customers),
+	}
+}
+
+func (s *MemoryStore) GetPricingInsights() model.PricingInsights {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if len(s.records) == 0 {
+		return model.PricingInsights{}
+	}
+
+	type acc struct {
+		totalRevenue  float64
+		orders        int
+		minPrice      float64
+		maxPrice      float64
+		sumPrice      float64
+		totalDiscount float64
+	}
+	products := map[string]*acc{}
+	var totalDiscount float64
+	var totalRecords int
+
+	for _, r := range s.records {
+		p, ok := products[r.Product]
+		if !ok {
+			p = &acc{minPrice: r.UnitPrice, maxPrice: r.UnitPrice}
+			products[r.Product] = p
+		}
+		p.totalRevenue += r.TotalAmount
+		p.orders++
+		p.sumPrice += r.UnitPrice
+		if r.UnitPrice < p.minPrice {
+			p.minPrice = r.UnitPrice
+		}
+		if r.UnitPrice > p.maxPrice {
+			p.maxPrice = r.UnitPrice
+		}
+		expected := float64(r.Quantity) * r.UnitPrice
+		if expected > 0 {
+			discountPct := (expected - r.TotalAmount) / expected * 100
+			p.totalDiscount += discountPct
+			totalDiscount += discountPct
+			totalRecords++
+		}
+	}
+
+	result := make([]model.ProductPricing, 0, len(products))
+	for name, p := range products {
+		avgPrice := 0.0
+		if p.orders > 0 {
+			avgPrice = math.Round(p.sumPrice/float64(p.orders)*100) / 100
+		}
+		avgDiscount := 0.0
+		if p.orders > 0 {
+			avgDiscount = math.Round(p.totalDiscount/float64(p.orders)*10) / 10
+		}
+		result = append(result, model.ProductPricing{
+			Product:      name,
+			AvgUnitPrice: avgPrice,
+			MinUnitPrice: math.Round(p.minPrice*100) / 100,
+			MaxUnitPrice: math.Round(p.maxPrice*100) / 100,
+			TotalRevenue: math.Round(p.totalRevenue*100) / 100,
+			TotalOrders:  p.orders,
+			AvgDiscount:  avgDiscount,
+		})
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].TotalRevenue > result[j].TotalRevenue
+	})
+
+	globalDiscount := 0.0
+	if totalRecords > 0 {
+		globalDiscount = math.Round(totalDiscount/float64(totalRecords)*10) / 10
+	}
+
+	return model.PricingInsights{
+		Products:    result,
+		AvgDiscount: globalDiscount,
+	}
 }
 
 func (s *MemoryStore) HasData() bool {

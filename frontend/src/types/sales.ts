@@ -68,3 +68,43 @@ export interface UploadResult {
   rows_skipped: number;
   validation_errors: ValidationError[];
 }
+
+export interface KPISummary {
+  total_revenue: number;
+  total_orders: number;
+  avg_order_value: number;
+  unique_customers: number;
+  revenue_this_month: number;
+  revenue_last_month: number;
+  revenue_growth: number;
+}
+
+export interface CustomerSummary {
+  customer_id: string;
+  total_revenue: number;
+  order_count: number;
+  avg_order_value: number;
+  last_order_date: string;
+}
+
+export interface CustomerInsights {
+  top_customers: CustomerSummary[];
+  new_customers: number;
+  returning_customers: number;
+  total_customers: number;
+}
+
+export interface ProductPricing {
+  product: string;
+  avg_unit_price: number;
+  min_unit_price: number;
+  max_unit_price: number;
+  total_revenue: number;
+  total_orders: number;
+  avg_discount: number;
+}
+
+export interface PricingInsights {
+  products: ProductPricing[];
+  avg_discount: number;
+}
