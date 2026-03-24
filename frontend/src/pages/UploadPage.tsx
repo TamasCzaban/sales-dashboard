@@ -28,6 +28,20 @@ function UploadPage() {
     }
   };
 
+  const handleLoadSample = async () => {
+    setIsUploading(true);
+    setError(null);
+    try {
+      const res = await fetch("/sample_sales.csv");
+      const blob = await res.blob();
+      const file = new File([blob], "sample_sales.csv", { type: "text/csv" });
+      await handleFileSelect(file);
+    } catch {
+      setError("Failed to load sample data.");
+      setIsUploading(false);
+    }
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
@@ -38,6 +52,16 @@ function UploadPage() {
         unit_price, total_amount
       </p>
       <FileUpload onFileSelect={handleFileSelect} isUploading={isUploading} />
+      <div className="mt-4 flex items-center gap-3">
+        <span className="text-sm text-gray-400">or</span>
+        <button
+          onClick={handleLoadSample}
+          disabled={isUploading}
+          className="text-sm text-blue-600 hover:text-blue-800 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Load sample data
+        </button>
+      </div>
       {error && (
         <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-md">
           {error}
