@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/czdev/sales-dashboard/backend/internal/handler"
 	"github.com/czdev/sales-dashboard/backend/internal/middleware"
@@ -30,7 +31,10 @@ func main() {
 	r.Get("/api/v1/analytics/products", handler.Products(s))
 	r.Get("/api/v1/analytics/churn", handler.Churn(s))
 
-	port := ":8080"
-	fmt.Printf("Server running on http://localhost%s\n", port)
-	log.Fatal(http.ListenAndServe(port, r))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Printf("Server running on http://localhost:%s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
